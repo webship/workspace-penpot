@@ -1,0 +1,113 @@
+# The Penpot of this project: its frontend (served at the project's address), its backend, its exporter, PostgreSQL
+# and Valkey, from the publisher's images. Written by the Penpot builder of the workspace (the plugin's
+# docker-compose.penpot.yaml); build again rather than editing by hand.
+x-penpot-flags: &penpot-flags
+  PENPOT_FLAGS: enable-login-with-password enable-registration disable-email-verification enable-smtp enable-prepl-server disable-secure-session-cookies disable-admin-console
+x-penpot-uri: &penpot-public-uri
+  PENPOT_PUBLIC_URI: https://${DDEV_HOSTNAME}
+x-penpot-secret: &penpot-secret-key
+  PENPOT_SECRET_KEY: ${PENPOT_SECRET_KEY:-webship-test-site-only-not-a-secret}
+x-ddev-labels: &ddev-labels
+  com.ddev.site-name: ${DDEV_SITENAME}
+  com.ddev.approot: ${DDEV_APPROOT}
+services:
+  web:
+    environment:
+      - HTTP_EXPOSE=8093:80,8025:8025
+      - HTTPS_EXPOSE=8457:80,8026:8025
+  penpot-frontend:
+    image: "penpotapp/frontend:${PENPOT_VERSION:-2.19.4}"
+    container_name: ddev-${DDEV_SITENAME}-penpot-frontend
+    labels: *ddev-labels
+    expose:
+      - "8080"
+    volumes:
+      - penpot_assets:/opt/data/assets
+    depends_on:
+      - penpot-backend
+      - penpot-exporter
+    environment:
+      <<: [*penpot-flags, *penpot-public-uri]
+      VIRTUAL_HOST: ${DDEV_HOSTNAME}
+      HTTP_EXPOSE: "80:8080"
+      HTTPS_EXPOSE: "443:8080"
+  penpot-backend:
+    image: "penpotapp/backend:${PENPOT_VERSION:-2.19.4}"
+    container_name: ddev-${DDEV_SITENAME}-penpot-backend
+    labels: *ddev-labels
+    volumes:
+      - penpot_assets:/opt/data/assets
+      # The plugin's scripts and the sample files, which the builder and the tool run in this container.
+      - ${DDEV_APPROOT}/penpot:/opt/webship:ro
+    depends_on:
+      penpot-postgres:
+        condition: service_healthy
+      penpot-valkey:
+        condition: service_healthy
+    environment:
+      <<: [*penpot-flags, *penpot-public-uri, *penpot-secret-key]
+      PENPOT_DATABASE_URI: postgresql://penpot-postgres/penpot
+      PENPOT_DATABASE_USERNAME: penpot
+      PENPOT_DATABASE_PASSWORD: penpot
+      PENPOT_REDIS_URI: redis://penpot-valkey/0
+      PENPOT_OBJECTS_STORAGE_BACKEND: fs
+      PENPOT_OBJECTS_STORAGE_FS_DIRECTORY: /opt/data/assets
+      PENPOT_TELEMETRY_ENABLED: "false"
+      # A test site: a password recovery is sent again after one second, not after the fifteen minutes Penpot waits by
+      # default since the profile last changed (a suite asks for one in every run).
+      PENPOT_EMAIL_VERIFY_THRESHOLD: "1s"
+      PENPOT_SMTP_DEFAULT_FROM: no-reply@example.com
+      PENPOT_SMTP_DEFAULT_REPLY_TO: no-reply@example.com
+      PENPOT_SMTP_HOST: web
+      PENPOT_SMTP_PORT: 1025
+      PENPOT_SMTP_USERNAME: ""
+      PENPOT_SMTP_PASSWORD: ""
+      PENPOT_SMTP_TLS: "false"
+      PENPOT_SMTP_SSL: "false"
+  penpot-exporter:
+    image: "penpotapp/exporter:${PENPOT_VERSION:-2.19.4}"
+    container_name: ddev-${DDEV_SITENAME}-penpot-exporter
+    labels: *ddev-labels
+    depends_on:
+      penpot-valkey:
+        condition: service_healthy
+    environment:
+      <<: [*penpot-flags, *penpot-secret-key, *penpot-public-uri]
+      PENPOT_INTERNAL_URI: http://penpot-frontend:8080
+      PENPOT_REDIS_URI: redis://penpot-valkey/0
+  penpot-postgres:
+    image: "postgres:15"
+    container_name: ddev-${DDEV_SITENAME}-penpot-postgres
+    labels: *ddev-labels
+    stop_signal: SIGINT
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U penpot"]
+      interval: 2s
+      timeout: 10s
+      retries: 10
+      start_period: 2s
+    volumes:
+      - penpot_postgres:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_INITDB_ARGS=--data-checksums
+      - POSTGRES_DB=penpot
+      - POSTGRES_USER=penpot
+      - POSTGRES_PASSWORD=penpot
+  penpot-valkey:
+    image: valkey/valkey:8.1
+    container_name: ddev-${DDEV_SITENAME}-penpot-valkey
+    labels: *ddev-labels
+    healthcheck:
+      test: ["CMD-SHELL", "valkey-cli ping | grep PONG"]
+      interval: 1s
+      timeout: 3s
+      retries: 10
+      start_period: 3s
+    environment:
+      - VALKEY_EXTRA_FLAGS=--maxmemory 128mb --maxmemory-policy volatile-lfu
+# Named after the project, so the build removes them with it and a new build starts from an empty database.
+volumes:
+  penpot_assets:
+    name: ddev-${DDEV_SITENAME}-penpot-assets
+  penpot_postgres:
+    name: ddev-${DDEV_SITENAME}-penpot-postgres
