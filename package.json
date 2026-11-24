@@ -1,0 +1,106 @@
+{
+  "name": "@webship.co/workspace-penpot",
+  "version": "1.0.0",
+  "description": "Penpot for Webship Workspace: the builder (`cmd-penpot-project.sh`, a site of the open-source design and prototyping platform from the publisher's images, its frontend, backend and exporter with PostgreSQL and Valkey as services of a project in containers, with a mail catcher, optional default accounts in a team and sample content) and the backend's tool in every sites folder, the default accounts and their roles, the Penpot step pack wired into the testing setup, and its AI items in their folders: two agents, a skill, a command and two prompts.",
+  "main": "dist/src/index.js",
+  "types": "dist/src/index.d.ts",
+  "license": "ISC",
+  "engines": {
+    "node": ">=24"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/webship/workspace-penpot.git"
+  },
+  "files": [
+    "dist/src",
+    "ai",
+    "commands",
+    "features",
+    "scripts",
+    "testing",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "prepare": "npm run build",
+    "test": "npm run build && node --test dist/tests/*.test.js",
+    "lint": "tsc -p tsconfig.json --noEmit"
+  },
+  "workspacePlugin": {
+    "name": "penpot",
+    "label": "Penpot",
+    "summary": "A builder for Penpot design and prototyping sites (from the publisher's images, with default accounts in a team and sample content), and the backend's tool",
+    "needs": [
+      [
+        "dev",
+        "test",
+        "sandboxes",
+        "demos"
+      ],
+      "ai-agents",
+      "ai-skills",
+      "ai-commands",
+      "ai-prompts"
+    ],
+    "commands": {
+      "types": [
+        "sites"
+      ],
+      "workspaces": [
+        "dev",
+        "test",
+        "sandboxes",
+        "demos"
+      ],
+      "files": [
+        "commands/cmd-penpot-project.sh",
+        "commands/cmd-tools-penpot-cli.sh"
+      ]
+    },
+    "scripts": {
+      "functions": [
+        "scripts/functions/fun-penpot.sh"
+      ],
+      "args": [
+        "scripts/args/arg-penpot.sh",
+        "scripts/args/arg-penpot-cli.sh"
+      ],
+      "machine": [
+        "scripts/docker-compose.penpot.yaml",
+        "scripts/penpot-accounts.py",
+        "scripts/penpot-site.py",
+        "scripts/homepage.penpot",
+        "scripts/style-guide.penpot",
+        "testing/site.feature"
+      ]
+    },
+    "ai": {
+      "agents": [
+        "ai/agents/penpot-site-builder.md",
+        "ai/agents/penpot-tester.md"
+      ],
+      "skills": [
+        "ai/skills/penpot-scenarios"
+      ],
+      "commands": [
+        "ai/commands/penpot-test.md"
+      ],
+      "prompts": [
+        "ai/prompts/penpot-build-and-test.md",
+        "ai/prompts/penpot-scenarios-for-an-area.md"
+      ]
+    },
+    "features": [
+      "features/penpot.feature"
+    ]
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@webship.co/workspace-plugin-api": "^1.0.11",
+    "typescript": "^5.9.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
